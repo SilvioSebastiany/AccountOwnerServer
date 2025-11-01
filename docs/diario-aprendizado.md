@@ -199,7 +199,400 @@ public interface IRepositoryManager
 
 ---
 
-### ⏰ Tempo Investido Hoje: 3 horas
-### 🎯 Progresso Geral: 45% concluído ⬆️
+## 📅 1 de Novembro de 2025
 
-**Próxima sessão**: Criação do RepositoryContext e implementação dos repositórios concretos
+### 🎯 Meta do Dia
+Configurar o banco de dados Oracle e implementar ServiceExtensions para organização da arquitetura.
+
+### ✅ O que foi Implementado Hoje:
+
+#### 1. Configuração do Entity Framework Core com Oracle ✨ **NOVO**
+
+**💻 Comandos Executados:**
+```powershell
+# 1. Instalação do Entity Framework Core base (já estava)
+cd Entities
+dotnet add package Microsoft.EntityFrameworkCore
+
+# 2. Instalação do provedor Oracle
+dotnet add package Oracle.EntityFrameworkCore
+
+# 3. Substituição do SQL Server por Oracle no projeto principal
+cd ../AccountOwnerServer
+dotnet remove package Microsoft.EntityFrameworkCore.SqlServer
+dotnet add package Oracle.EntityFrameworkCore
+```
+
+**📦 Pacotes Instalados:**
+- `Microsoft.EntityFrameworkCore` (9.0.10)
+- `Oracle.EntityFrameworkCore` (9.23.26000)
+- `Oracle.ManagedDataAccess.Core` (23.26.0) - dependência automática
+
+#### 2. Configuração do RepositoryContext ✨ **ATUALIZADO**
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Entities.Models;
+
+namespace Entities;
+
+public class RepositoryContext : DbContext
+{
+    public RepositoryContext(DbContextOptions options) : base(options)
+    {
+    }
+
+    public DbSet<Owner> Owners { get; set; }
+    public DbSet<Account> Accounts { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Owner>()
+            .HasMany(o => o.Accounts)
+            .WithOne(a => a.Owner)
+            .HasForeignKey(a => a.OwnerId);
+
+        base.OnModelCreating(modelBuilder);
+    }
+}
+```
+
+**Conceitos aplicados:**
+- **UseOracle()**: Método de extensão do provedor Oracle
+- **Fluent API**: Configuração de relacionamentos no OnModelCreating
+- **HasMany/WithOne**: Relacionamento One-to-Many configurado
+
+#### 3. Implementação do Pattern ServiceExtensions ✨ **NOVO**
+
+**ServiceExtensions.cs** - Organização e modularização dos serviços:
+```csharp
+public static class ServiceExtensions
+{
+    public static void ConfigureOracleContext(this IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        services.AddDbContext<Entities.RepositoryContext>(options =>
+            options.UseOracle(connectionString));
+    }
+
+    public static void ConfigureCors(this IServiceCollection services)
+    {
+        services.AddCors(options =>
+        {
+            options.AddPolicy("CorsPolicy", builder =>
+                builder.AllowAnyOrigin()
+                       .AllowAnyMethod()
+                       .AllowAnyHeader());
+        });
+    }
+
+    public static void ConfigureLoggerService(this IServiceCollection services)
+    {
+        services.AddSingleton<ILoggerManager, LoggerManager>();
+    }
+}
+```
+
+**Benefícios identificados:**
+- ✅ **Separation of Concerns**: Cada método tem uma responsabilidade
+- ✅ **Clean Program.cs**: Configuração mais limpa e legível
+- ✅ **Reutilização**: Extensions podem ser testadas independentemente
+- ✅ **Manutenibilidade**: Fácil de modificar configurações específicas
+
+#### 4. Configuração de Connection Strings ✨ **NOVO**
+
+**appsettings.json** (Produção):
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=localhost:1521/XE;User Id=your_username;Password=your_password;"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+
+**appsettings.Development.json** (Desenvolvimento):
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=localhost:1521/XE;User Id=dev_user;Password=dev_password;"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  }
+}
+```
+
+**Conceitos aplicados:**
+- **Configuration Hierarchy**: Development sobrescreve Production
+- **Connection String Format**: Formato específico do Oracle
+- **EF Core Logging**: Log de comandos SQL para debug
+
+#### 5. Program.cs Atualizado ✨ **IMPLEMENTAÇÃO ATUAL**
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Entities;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllers();
+
+// Configure Oracle Database (implementação direta)
+builder.Services.AddDbContext<RepositoryContext>(options =>
+    options.UseOracle(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Configure CORS (implementação direta)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", builder =>
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader());
+});
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+
+app.UseHttpsRedirection();
+app.UseCors("CorsPolicy");
+app.UseRouting();
+app.MapControllers();
+
+await app.RunAsync();
+```
+
+**📝 Nota**: ServiceExtensions existem e estão configuradas, mas atualmente o Program.cs usa configuração direta por questões de compatibilidade de namespace.
+
+### 🧠 Conceitos Importantes Aprendidos
+
+#### 1. **CORS (Cross-Origin Resource Sharing)**
+**O que é**: Política de segurança que controla acesso a recursos entre diferentes origens.
+
+**Por que precisamos**:
+- ✅ Frontend em `localhost:3000` → API em `localhost:5001`
+- ✅ Aplicações SPA (React, Angular, Vue)
+- ✅ Integração com aplicações de terceiros
+- ✅ Desenvolvimento local
+
+**Níveis de Permissão**:
+```csharp
+// 🚨 DESENVOLVIMENTO (muito permissivo)
+.AllowAnyOrigin()
+.AllowAnyMethod()
+.AllowAnyHeader()
+
+// ✅ PRODUÇÃO (mais seguro)
+.WithOrigins("https://www.meusite.com")
+.WithMethods("GET", "POST", "PUT", "DELETE")
+.WithHeaders("Content-Type", "Authorization")
+```
+
+#### 2. **Oracle vs SQL Server - Diferenças Práticas**
+| Aspecto | SQL Server | Oracle |
+|---------|------------|---------|
+| **Connection String** | `Server=.;Database=DB;` | `Data Source=localhost:1521/XE;` |
+| **Package** | `Microsoft.EntityFrameworkCore.SqlServer` | `Oracle.EntityFrameworkCore` |
+| **Method** | `.UseSqlServer()` | `.UseOracle()` |
+| **Default Port** | 1433 | 1521 |
+
+#### 3. **ServiceExtensions Pattern - Benefícios**
+- **Testabilidade**: Cada extensão pode ser testada isoladamente
+- **Modularidade**: Configurações organizadas por responsabilidade
+- **Clean Code**: Program.cs mais limpo e legível
+- **Reutilização**: Extensions podem ser usadas em outros projetos
+
+### 🤔 Reflexões do Dia
+
+#### O que funcionou bem:
+1. **Migração SQL Server → Oracle** foi suave com Entity Framework
+2. **ServiceExtensions** deixou o código muito mais organizado
+3. **Configuração hierárquica** (appsettings) funciona perfeitamente
+
+#### Desafios encontrados:
+1. **Problemas de Namespace**: Conflitos entre `Entities` e `Entities.Models`
+   - **Solução**: Organização clara dos usings e namespaces
+2. **Connection String Format**: Oracle tem formato específico
+   - **Aprendizado**: Sempre verificar documentação do provedor
+
+#### Dúvidas que surgiram:
+- Como configurar Oracle Connection Pooling para performance?
+- Quais são as melhores práticas de segurança para CORS em produção?
+- Como implementar Health Checks para conexão Oracle?
+
+### 📚 Novos Conceitos Técnicos
+
+#### 1. **Extension Methods Avançados**
+```csharp
+public static void ConfigureXXX(this IServiceCollection services, IConfiguration configuration)
+```
+- **this IServiceCollection**: Permite chamada fluente
+- **Injeção de IConfiguration**: Acesso às configurações
+
+#### 2. **Oracle Entity Framework Provider**
+- **Managed Data Access**: Provider oficial da Oracle
+- **Auto Dependencies**: Instala Oracle.ManagedDataAccess.Core automaticamente
+- **Version Compatibility**: EF Core 9.0 + Oracle 9.23
+
+#### 3. **CORS Pipeline Order**
+```csharp
+app.UseHttpsRedirection();  // 1. HTTPS primeiro
+app.UseCors("CorsPolicy");  // 2. CORS antes do routing
+app.UseRouting();           // 3. Routing depois
+```
+
+### 🎯 Próximos Passos Identificados
+
+#### Prioridade Alta:
+1. **Implementar Repository Base Concreto**
+   - RepositoryBase<T> com Oracle
+   - Async/await patterns
+   - Error handling específico para Oracle
+
+2. **Configurar Migrations**
+   - `dotnet ef migrations add InitialCreate`
+   - Testar criação de tabelas no Oracle
+
+#### Prioridade Média:
+3. **Implementar Health Checks**
+   - Verificação de conexão com Oracle
+   - Endpoint de status da aplicação
+
+4. **Configurar Logging Avançado**
+   - NLog ou Serilog
+   - Logs específicos para operações de banco
+
+### 💡 Insights Importantes
+1. **Provider Independence**: Entity Framework abstrai diferenças entre bancos
+2. **Configuration Pattern**: ServiceExtensions é padrão em projetos .NET modernos
+3. **Security First**: CORS deve ser configurado desde o início, mas ajustado para produção
+4. **Environment-Specific Config**: Configurações diferentes por ambiente são essenciais
+
+### 📖 Material para Estudar Próximo
+- [ ] Oracle-specific EF Core features
+- [ ] Advanced CORS scenarios
+- [ ] Connection pooling with Oracle
+- [ ] Performance tuning Oracle + EF Core
+
+---
+
+### ⏰ Tempo Investido Hoje: 2 horas
+### 🎯 Progresso Geral: 65% concluído ⬆️
+
+#### 6. Implementações Adicionais Descobertas ✨ **COMPLETAS MAS NÃO DOCUMENTADAS**
+
+##### **LoggerService Completo com NLog**
+```csharp
+public class LoggerManager : ILoggerManager
+{
+    private static ILogger logger = LogManager.GetCurrentClassLogger();
+
+    public void LogDebug(string message) => logger.Debug(message);
+    public void LogError(string message) => logger.Error(message);
+    public void LogInfo(string message) => logger.Info(message);
+    public void LogWarn(string message) => logger.Warn(message);
+}
+```
+
+**Pacotes instalados:**
+- `NLog.Extensions.Logging` (5.3.14)
+- Integração completa com ILoggerManager interface
+
+##### **Data Annotations Avançadas nos Modelos**
+```csharp
+[Table("Owner")]
+public class Owner
+{
+    public Guid OwnerId { get; set; }
+
+    [Required(ErrorMessage = "Name is required.")]
+    [StringLength(60, ErrorMessage = "Name cannot be longer than 60 characters.")]
+    public string? Name { get; set; }
+
+    [Required(ErrorMessage = "Date of Birth is required.")]
+    public DateTime DateOfBirth { get; set; }
+
+    [Required(ErrorMessage = "Address is required.")]
+    [StringLength(100, ErrorMessage = "Address cannot be longer than 100 characters.")]
+    public string Address { get; set; } // ⚠️ Warning: Nullable issue
+
+    public ICollection<Models.Account>? Accounts { get; set; }
+}
+```
+
+**Conceitos implementados:**
+- **Table Mapping**: `[Table("Owner")]` define nome da tabela
+- **Validation Attributes**: Required, StringLength com mensagens customizadas
+- **Navigation Properties**: Coleção tipada para relacionamento 1:N
+
+##### **ServiceExtensions Completo (Disponível mas não usado)**
+```csharp
+public static class ServiceExtensions
+{
+    public static void ConfigureOracleContext(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddDbContext<Entities.RepositoryContext>(options =>
+            options.UseOracle(configuration.GetConnectionString("DefaultConnection")));
+    }
+
+    public static void ConfigureCors(this IServiceCollection services) { /* implementado */ }
+
+    public static void ConfigureLoggerService(this IServiceCollection services)
+    {
+        services.AddSingleton<ILoggerManager, LoggerManager>();
+    }
+
+    public static void ConfigureIISIntegration(this IServiceCollection services)
+    {
+        services.Configure<IISOptions>(options => { });
+    }
+}
+```
+
+### 🐛 **Issues Identificadas que Precisam de Correção**
+
+#### 1. **Nullable Reference Types Warnings**
+```csharp
+// ⚠️ PROBLEMA: Address não pode ser null mas não está marcada como nullable
+public string Address { get; set; }
+
+// ⚠️ PROBLEMA: AccountType não pode ser null mas não está marcada como nullable
+public string AccountType { get; set; }
+```
+
+#### 2. **Namespace Inconsistência**
+```csharp
+// No Account.cs - referência desnecessária
+public Models.Owner? Owner { get; set; }
+
+// No Owner.cs - referência desnecessária
+public ICollection<Models.Account>? Accounts { get; set; }
+```
+
+### 🎯 **Status Real vs Documentado**
+
+| Componente | Documentado | Implementado | Status |
+|------------|-------------|--------------|---------|
+| **Estrutura Base** | ✅ | ✅ | ✅ Completo |
+| **Oracle Config** | ✅ | ✅ | ✅ Completo |
+| **CORS** | ✅ | ✅ | ✅ Completo |
+| **ServiceExtensions** | ✅ | ✅ | ⚠️ Existe mas não usado |
+| **LoggerService + NLog** | ❌ | ✅ | ⚠️ Não documentado |
+| **Data Annotations** | ❌ | ✅ | ⚠️ Não documentado |
+| **Build Success** | ❌ | ✅ | ⚠️ Funcionando |
+
+**Próxima sessão**: Corrigir warnings de nullable types e implementar repositórios concretos

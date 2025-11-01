@@ -18,7 +18,7 @@ public class Owner
 
     [Required(ErrorMessage = "Address is required.")]
     [StringLength(100, ErrorMessage = "Address cannot be longer than 100 characters.")]
-    public string Address { get; set; }
+    public string Address { get; set; } = string.Empty;
 
     public ICollection<Account>? Accounts { get; set; }
 }

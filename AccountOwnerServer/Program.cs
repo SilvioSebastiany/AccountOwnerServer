@@ -1,14 +1,19 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Entities;
+using Contracts;
+using Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Configure Oracle Database
+// Configure SQL Server LocalDB (Alternative to Oracle)
 builder.Services.AddDbContext<RepositoryContext>(options =>
-    options.UseOracle(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Configure Repository Pattern
+builder.Services.AddScoped<IRepositoryWrapper, RepositoryWrapper>();
 
 // Configure CORS
 builder.Services.AddCors(options =>
@@ -18,6 +23,7 @@ builder.Services.AddCors(options =>
                .AllowAnyMethod()
                .AllowAnyHeader());
 });
+
 
 var app = builder.Build();
 

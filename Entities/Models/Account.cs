@@ -13,7 +13,7 @@ public class Account
     public DateTime DateCreated { get; set; }
 
     [Required(ErrorMessage = "Account Type is required.")]
-    public string AccountType { get; set; }
+    public string AccountType { get; set; } = string.Empty;
 
     [ForeignKey(nameof(Owner))]
     public Guid OwnerId { get; set; }

@@ -1,11 +1,8 @@
+using Entities.Models;
+
 namespace Contracts;
 
-public interface IAccountRepository
+public interface IAccountRepository : IRepositoryBase<Account>
 {
-    // Métodos específicos para Account serão implementados aqui
-}
-
-public interface IOwnerRepository  
-{
-    // Métodos específicos para Owner serão implementados aqui
+    // Define any additional methods specific to Account here
 }

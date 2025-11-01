@@ -1,6 +1,6 @@
 using Contracts;
-using LoggerService;
 using Microsoft.EntityFrameworkCore;
+using Repository;
 
 namespace AccountOwnerServer.Extensions;
 
@@ -24,16 +24,16 @@ public static class ServiceExtensions
         });
     }
 
-    public static void ConfigureLoggerService(this IServiceCollection services)
-    {
-        services.AddSingleton<ILoggerManager, LoggerManager>();
-    }
-
     public static void ConfigureOracleContext(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection");
 
         services.AddDbContext<Entities.RepositoryContext>(options =>
             options.UseOracle(connectionString));
+    }
+
+    public static void ConfigureRepositoryWrapper(this IServiceCollection services)
+    {
+        services.AddScoped<IRepositoryWrapper, RepositoryWrapper>();
     }
 }

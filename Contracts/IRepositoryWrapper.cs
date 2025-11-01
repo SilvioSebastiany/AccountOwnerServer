@@ -1,6 +1,6 @@
 namespace Contracts;
 
-public interface IRepositoryManager
+public interface IRepositoryWrapper
 {
     IAccountRepository Account { get; }
     IOwnerRepository Owner { get; }
